@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace TestWebApi.Models
+namespace TestWebApi.Models.Request
 {
     public class RequestModel
     {
@@ -10,7 +10,8 @@ namespace TestWebApi.Models
         [Required]
         public string Name { get; set; }
 
+        [Required]
         [Range(1, 10)]
-        public int Rating { get; set; }
+        public int? Rating { get; set; }
     }
 }

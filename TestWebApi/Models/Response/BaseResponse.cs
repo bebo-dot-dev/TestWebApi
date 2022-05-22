@@ -1,10 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 
-namespace TestWebApi.Models
+namespace TestWebApi.Models.Response
 {
     public class BaseResponse : ProblemDetails
     {
+        public BaseResponse()
+        {
+            Type = GetType().Name;
+        }
+
         public IList<ErrorDetail> Errors { get; set; }
     }
 

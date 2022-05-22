@@ -27,10 +27,12 @@ namespace TestWebApi
         {
             services.AddControllers(options =>
             {
-                options.Filters.Add<ExceptionFilter>();
+                options.Filters.Add(new ResponseCacheAttribute { NoStore = true, Location = ResponseCacheLocation.None });
+                options.Filters.Add<ExceptionFilter>();                
             }).AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.IgnoreNullValues = true;
+                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
             });
                         
             services.AddSwaggerGen();
@@ -41,6 +43,8 @@ namespace TestWebApi
                 {
                     var loggerFactory = ctx.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
                     var logger = loggerFactory.CreateLogger<ModelStateErrorDetailsResult>();
+                    ctx.HttpContext.Response.Headers["cache-control"] = "no-store,no-cache";
+                    ctx.HttpContext.Response.Headers["pragma"] = "no-cache";
                     return new ModelStateErrorDetailsResult(logger);
                 };
             });
@@ -77,11 +81,12 @@ namespace TestWebApi
                         Instance = $"urn:BSS:TraceIdentifier:{context.TraceIdentifier}",
                         Title = "An unhandled exception was caught",
                         Status = (int)HttpStatusCode.InternalServerError,
+                        Type = exception.GetType().Name,
                         Detail = errorDetail
                     };
                                                                                                                         
                     context.Response.StatusCode = problemDetails.Status.Value;
-                    await context.Response.WriteJson(problemDetails, "application/problem+json");
+                    await context.Response.WriteJson(problemDetails, HttpStatusCode.InternalServerError, "application/problem+json");
                 });
             });
 

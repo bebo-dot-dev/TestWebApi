@@ -6,10 +6,10 @@ using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using TestWebApi.Extensions;
-using TestWebApi.Models;
+using TestWebApi.Models.Response;
 
 namespace TestWebApi.Validation
-{    
+{
     public class ModelStateErrorDetailsResult : IActionResult
     {
         private readonly ILogger<ModelStateErrorDetailsResult> _logger;
@@ -24,7 +24,7 @@ namespace TestWebApi.Validation
             var modelStateErrors = context.ModelState.Where(e => e.Value.Errors.Count > 0).ToArray();
             var errors = new List<ErrorDetail>();
 
-            var details = "See ValidationErrors for details";
+            var details = "See Errors for details";
             var exceptionMessage = string.Empty;
 
             if (modelStateErrors.Any())
@@ -62,6 +62,7 @@ namespace TestWebApi.Validation
                 Instance = $"urn:BSS:TraceIdentifier:{traceIdentifier}",
                 Title = "Request Validation Error",
                 Status = (int)HttpStatusCode.BadRequest,
+                Type = context.ActionDescriptor.Parameters.FirstOrDefault()?.ParameterType?.Name,
                 Detail = details,
                 Errors = errors
             };
@@ -74,7 +75,7 @@ namespace TestWebApi.Validation
             };
             _logger.LogError(badRequestException, $"Caught validation BadRequestException in {controllerName}.{actionName} logged with traceIdentifier {traceIdentifier}");
 
-            await context.HttpContext.Response.WriteJson(problemDetails);            
+            await context.HttpContext.Response.WriteJson(problemDetails, HttpStatusCode.BadRequest, "application/problem+json");
         }
     }
 }
