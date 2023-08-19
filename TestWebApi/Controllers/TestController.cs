@@ -1,71 +1,73 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Net;
-using TestWebApi.ActionResult;
-using TestWebApi.Models.Request;
-using TestWebApi.Models.Response;
+using System.Net.Mime;
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 
-namespace TestWebApi.Controllers
+namespace TestWebApi.Controllers;
+
+[ApiController]
+[Route("[controller]")]
+public class TestController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class TestController : ControllerBase
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public TestController(IHttpClientFactory httpClientFactory)
     {
-        [HttpGet]
-        [Route("validate")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(typeof(BaseResponse), 400)]
-        [ProducesResponseType(typeof(BaseResponse), 500)]
-        public ActionResult<ResponseModel1> GetAction([FromQuery] RequestModel request)
-        {
-            return new JsonBaseResponseResult(
-                new ResponseModel1
-                {
-                    Id = request.Id.Value,
-                    Name = request.Name,
-                    Rating = request.Rating.Value
-                });
-        }
+        _httpClientFactory = httpClientFactory;
+    }
+    
+    [HttpPost]
+    [Route("small")]
+    public IActionResult GetSmallFile(FileRequest request)
+    {
+        var fileStream = System.IO.File.Open("./Files/small.gz", FileMode.Open, FileAccess.Read);
+        return new FileStreamResult(fileStream, "application/octet-stream") { FileDownloadName = "small.gz" };
+    }
+        
+    [HttpPost]
+    [Route("large")]
+    public IActionResult GetBigFile(FileRequest request)
+    {
+        var fileStream = System.IO.File.Open("./Files/large.gz", FileMode.Open, FileAccess.Read);
+        return new FileStreamResult(fileStream, "application/octet-stream") { FileDownloadName = "large.gz" };
+    }
+    
+    [HttpGet]
+    [Route("small-client")]
+    public async Task<IActionResult> GetSmallFileClient()
+    {
+        var payload = new StringContent(
+            JsonSerializer.Serialize(new FileRequest()),
+            Encoding.UTF8,
+            MediaTypeNames.Application.Json);
 
-        [HttpPost]
-        [Route("validate")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(typeof(BaseResponse), 400)]
-        [ProducesResponseType(typeof(BaseResponse), 500)]
-        public ActionResult<ResponseModel2> PostAction([FromBody] RequestModel request)
-        {
-            return new JsonBaseResponseResult(
-                new ResponseModel2
-                {
-                    Descriptor = request.Name
-                });
-        }
+        var httpClient = _httpClientFactory.CreateClient("any-cert-proxied-client");
+        
+        var response = await httpClient.PostAsync(GetUri("Test/small"), payload);
+        var clientStream = await response.Content.ReadAsStreamAsync();
+        
+        return new FileStreamResult(clientStream, "application/octet-stream") { FileDownloadName = "small.gz" };
+    }
+    
+    [HttpGet]
+    [Route("large-client")]
+    public async Task<FileStreamResult> GetLargeFileClient()
+    {
+        var payload = new StringContent(
+            JsonSerializer.Serialize(new FileRequest()),
+            Encoding.UTF8,
+            MediaTypeNames.Application.Json);
 
-        [HttpGet]
-        [Route("throwException")]
-        [ProducesResponseType(typeof(BaseResponse), 500)]
-        public IActionResult ExceptionAction()
-        {
-            throw new Exception("ExceptionAction");
-        }
+        var httpClient = _httpClientFactory.CreateClient("any-cert-proxied-client");
+        
+        var response = await httpClient.PostAsync(GetUri("Test/large"), payload);
+        var clientStream = await response.Content.ReadAsStreamAsync();
+        
+        return new FileStreamResult(clientStream, "application/octet-stream") { FileDownloadName = "large.gz" };
+    }
 
-        [HttpPost]
-        [Route("returnErrorDetails")]
-        [ProducesResponseType(409)]
-        public ActionResult<ResponseModel1> PostActionReturnErrorDetails()
-        {
-            return new JsonBaseResponseResult(
-                new ResponseModel1
-                {
-                    Id = 123,
-                    Name = "error response",
-                    Status = (int)HttpStatusCode.Conflict,
-                    Errors = new List<ErrorDetail>
-                    {
-                        new ErrorDetail { Name = "error1", Description = "error1Description" }
-                    }
-                });
-        }
+    private string GetUri(string path)
+    {
+        return $"{Request.Scheme}://{Request.Host}/{path}";
     }
 }
